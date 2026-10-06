@@ -1,0 +1,4 @@
+# Aucune dépendance Python : l'Extracteur n'utilise que la bibliothèque standard (Python 3.10+).
+# Côté Termux, il faut seulement les paquets système :
+#   pkg install python termux-api
+# et l'application Android « Termux:API » (même source que Termux : F-Droid ou GitHub).

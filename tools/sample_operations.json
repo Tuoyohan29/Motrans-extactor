@@ -1,0 +1,11 @@
+[
+  {
+    "operationId": "OP-458",
+    "operator": "orange",
+    "type": "transfer",
+    "ussdCode": "*144*1*{beneficiary}*{amount}*{secret.pin}#",
+    "beneficiary": "0707070707",
+    "amount": 500,
+    "parameters": {"smsWaitSeconds": 10, "smsExpectedCount": 1}
+  }
+]

@@ -1,0 +1,10 @@
+[
+  {
+    "status": "COMPLETED",
+    "message": "Votre demande de transfert de 500 FCFA vers 0707070707 est en cours de traitement.",
+    "sms": {
+      "sender": "OrangeMoney",
+      "body": "Transfert de 500 FCFA vers 0707070707 effectue. Frais: 0 FCFA. Nouveau solde: 12 350 FCFA. Ref: PP261006.1452.B47120"
+    }
+  }
+]
