@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MoTrans USSD Bridge</string>
+    <string name="accessibility_label">MoTrans USSD Bridge (lecture des menus USSD)</string>
+    <string name="bridge_url">Passerelle : http://127.0.0.1:%1$d</string>
+    <string name="status_line">Service d\'accessibilité : %1$s</string>
+    <string name="a11y_on">activé ✓</string>
+    <string name="a11y_off">désactivé (menus USSD indisponibles)</string>
+    <string name="btn_start">Démarrer la passerelle</string>
+    <string name="btn_stop">Arrêter la passerelle</string>
+    <string name="btn_accessibility">Activer l\'accessibilité</string>
+    <string name="hint">Garder ce téléphone dédié à l\'Extracteur.\nUSSD_BACKEND=http côté Extracteur.</string>
+    <string name="notif_title">MoTrans USSD Bridge</string>
+    <string name="notif_text">Passerelle active sur 127.0.0.1:%1$d</string>
+    <string name="channel_name">Passerelle USSD</string>
+</resources>

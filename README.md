@@ -90,8 +90,9 @@ Penser à fermer la fenêtre de réponse : elle peut bloquer l'USSD suivant. Le 
 (PIN compris) peut aussi rester dans l'historique du composeur : réserver le téléphone à
 l'Extracteur.
 
-Pour lire les réponses et naviguer dans les menus, brancher plus tard une passerelle
-(`USSD_BACKEND=http`, ex. appli construite avec thl_ussd_service) : seul `ussd/` change.
+Pour lire les réponses et naviguer dans les menus, utiliser `USSD_BACKEND=http` avec la
+passerelle Android fournie dans [`android-ussd-bridge/`](android-ussd-bridge/) (service
+d'accessibilité qui lit le dialogue USSD) : seul `ussd/` change côté Extracteur.
 
 ## Explorer les menus pour sortir le catalogue (pass, prix)
 
