@@ -22,6 +22,7 @@ class EventType:
     USSD_STARTED = "USSD_STARTED"  # le code USSD est parti
     USSD_RESPONSE = "USSD_RESPONSE"  # réponse de l'opérateur lue à l'écran
     SMS_RECEIVED = "SMS_RECEIVED"  # SMS reçu (pendant ou après une opération)
+    CATALOG_DISCOVERED = "CATALOG_DISCOVERED"  # exploration des menus : écrans et offres (pass) trouvés
     OPERATION_FINISHED = "OPERATION_FINISHED"  # exécution terminée, observations transmises
     OPERATION_FAILED = "OPERATION_FAILED"  # exécution impossible : rien n'est parti chez l'opérateur
     OPERATION_INTERRUPTED = "OPERATION_INTERRUPTED"  # coupure pendant l'exécution : état inconnu

@@ -27,6 +27,7 @@ from typing import Any
 from communication.client import CentralError
 from communication.reporter import EventType
 from core.operation import OPERATION_ID_RE, Operation, OperationError
+from ussd.explorer import UssdExplorer
 from ussd.launcher import UssdLaunchError
 from ussd.session import UssdSession
 from utils.helpers import utc_now_iso
@@ -100,6 +101,9 @@ class Executor:
             plan = operation.dial_plan(self.config.secrets)
         except OperationError as exc:
             return self._not_executed(operation_id, exc.code, exc.message, started_at)
+
+        if operation.is_exploration:
+            return self._explore(operation, plan, started_at)
         if plan.steps and not self.launcher.supports_interaction:
             return self._not_executed(
                 operation_id, "INTERACTION_NOT_SUPPORTED",
@@ -147,6 +151,41 @@ class Executor:
         }
         self.reporter.emit(EventType.OPERATION_FINISHED, operation_id, result)
         self.reporter.send_result(operation_id, result)
+        return result
+
+    def _explore(self, operation: Operation, plan, started_at: str) -> dict[str, Any]:
+        """Exploration des menus USSD : on lit l'arbre, on en sort le catalogue (pass)."""
+        if not self.launcher.supports_interaction:
+            return self._not_executed(
+                operation.operation_id, "EXPLORATION_NOT_SUPPORTED",
+                f"le mécanisme USSD « {self.launcher.name} » ne lit pas les réponses : "
+                "exploration impossible (USSD_BACKEND=http)", started_at)
+
+        self.local_state.set_phase(PHASE_USSD_LAUNCHING)
+        self.reporter.emit(EventType.USSD_STARTED, operation.operation_id,
+                           {"code": plan.code.redacted, "mode": "explore", "backend": self.launcher.name})
+        self.local_state.set_phase(PHASE_USSD_SENT)
+
+        explorer = UssdExplorer(self.launcher, self.config, self.stop_event)
+        explore = explorer.explore(plan.code).to_dict()
+
+        self.reporter.emit(EventType.CATALOG_DISCOVERED, operation.operation_id, {
+            "operator": operation.operator,
+            "rootCode": explore["rootCode"],
+            "catalog": explore["catalog"],
+            "screens": explore["pathsVisited"],
+            "truncated": explore["truncated"],
+        })
+        result = {
+            "outcome": OUTCOME_EXECUTED,
+            "mode": "explore",
+            "startedAt": started_at,
+            "finishedAt": utc_now_iso(),
+            "explore": explore,
+        }
+        self.reporter.emit(EventType.OPERATION_FINISHED, operation.operation_id, result)
+        self.reporter.send_result(operation.operation_id, result)
+        log.info("Exploration de %s terminée : %d offre(s)", operation.operator, len(explore["catalog"]))
         return result
 
     def _collect_sms(self, operation: Operation) -> dict[str, Any]:

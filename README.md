@@ -32,7 +32,8 @@ core/operation.py          Structure d'une opération, contrôle et préparation
 core/state.py              IDLE / BUSY / ERROR / OFFLINE
 ussd/launcher.py           Mécanismes USSD : termux, http (passerelle Android), mock
 ussd/session.py            Session : STARTED, WAITING_RESPONSE, INTERACTION_REQUIRED, COMPLETED, TIMEOUT, FAILED
-ussd/parser.py             Menu, montants, numéros, références dans une réponse USSD
+ussd/explorer.py           Exploration des menus : sort le catalogue (pass, prix, validité)
+ussd/parser.py             Menu, montants, numéros, références, offres dans une réponse USSD
 sms/reader.py              Lecture des SMS (termux-sms-list, fichier de test)
 sms/listener.py            Détection des nouveaux SMS (curseur persistant)
 sms/parser.py              Expéditeur, montant, frais, solde, numéro, référence, opérateur
@@ -91,6 +92,27 @@ l'Extracteur.
 
 Pour lire les réponses et naviguer dans les menus, brancher plus tard une passerelle
 (`USSD_BACKEND=http`, ex. appli construite avec thl_ussd_service) : seul `ussd/` change.
+
+## Explorer les menus pour sortir le catalogue (pass, prix)
+
+L'Extracteur peut fouiller les menus USSD d'un opérateur et en sortir les pass avec leur
+prix, leur volume et leur validité, pour alimenter la base avec de vraies données. Il faut
+`USSD_BACKEND=http` (la passerelle qui lit les réponses).
+
+```bash
+# en direct, pour voir le catalogue sans Balanceur :
+python main.py --explore '*144#' --operator orange
+```
+
+Ou via une opération envoyée par le Balanceur (`type: "explore"`, voir `docs/PROTOCOLE.md`).
+Chaque offre trouvée est renvoyée avec le chemin de touches qui y mène (`path` + `optionKey`),
+donc le Balanceur sait ensuite comment l'acheter.
+
+**L'exploration ne peut pas acheter**, par construction : l'Extracteur n'envoie que des
+touches lues dans un menu, s'arrête à tout écran de saisie (jamais de PIN ni de montant) et
+ne sélectionne jamais une option « confirmer / valider / payer / oui / retour »
+(`EXPLORE_BLOCK_LABELS`). Un arbre de menus simulé (`tools/mock_ussd_tree.json`) permet de
+tester l'exploration sans SIM — voir `tests/test_explorer.py`.
 
 ## Sécurité
 

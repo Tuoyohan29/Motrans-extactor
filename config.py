@@ -94,6 +94,11 @@ class Config:
     operator_sms_senders: dict[str, list[str]] = field(default_factory=dict)
     late_sms_grace: float = 600.0
 
+    explore_max_depth: int = 6
+    explore_max_nodes: int = 60
+    explore_step_delay: float = 1.0
+    explore_block_labels: list[str] = field(default_factory=list)
+
     data_dir: Path = field(default_factory=lambda: BASE_DIR / "data")
     log_level: str = "INFO"
     log_to_file: bool = True
@@ -155,6 +160,10 @@ class Config:
             sms_senders=_list(env, "SMS_SENDERS"),
             operator_sms_senders=operator_senders,
             late_sms_grace=_float(env, "LATE_SMS_GRACE", 600.0),
+            explore_max_depth=_int(env, "EXPLORE_MAX_DEPTH", 6) or 6,
+            explore_max_nodes=_int(env, "EXPLORE_MAX_NODES", 60) or 60,
+            explore_step_delay=_float(env, "EXPLORE_STEP_DELAY", 1.0),
+            explore_block_labels=_list(env, "EXPLORE_BLOCK_LABELS"),
             data_dir=data_dir,
             log_level=env.get("LOG_LEVEL", "INFO").strip().upper(),
             log_to_file=_bool(env, "LOG_TO_FILE", True),

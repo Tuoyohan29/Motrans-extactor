@@ -47,6 +47,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Extracteur Motrans (Termux)")
     parser.add_argument("--env", type=Path, default=BASE_DIR / ".env", help="fichier de configuration")
     parser.add_argument("--check", action="store_true", help="vérifier la configuration et le téléphone puis quitter")
+    parser.add_argument("--explore", metavar="CODE", help="explorer les menus USSD à partir de CODE (ex. '*144#') puis quitter")
+    parser.add_argument("--operator", default="?", help="opérateur associé à --explore")
     args = parser.parse_args(argv)
 
     try:
@@ -89,6 +91,16 @@ def main(argv: list[str] | None = None) -> int:
         except CentralError as exc:
             print(f"Central : injoignable ({exc})")
         return 0 if report["ok"] else 1
+
+    if args.explore:
+        from core.operation import Operation
+        from ussd.explorer import UssdExplorer
+        operation = Operation.from_dict({"operationId": "EXPLORE", "operator": args.operator,
+                                         "type": "explore", "ussdCode": args.explore})
+        plan = operation.dial_plan(config.secrets)
+        result = UssdExplorer(launcher, config).explore(plan.code).to_dict()
+        print(json.dumps({"operator": args.operator, **result}, ensure_ascii=False, indent=2))
+        return 0 if not result["stoppedReason"] or result["truncated"] else 1
 
     if config.wake_lock and command_exists("termux-wake-lock"):
         run_command(["termux-wake-lock"], config.termux_cmd_timeout)

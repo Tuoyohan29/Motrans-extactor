@@ -99,6 +99,7 @@ la confier à un second Extracteur.
 | `USSD_STARTED` | Le code est parti | `code` (PIN masqué), `steps`, `backend`, `simSlot`, `responseCaptured` |
 | `USSD_RESPONSE` | Réponse de l'opérateur lue | `index`, `sessionStatus`, `error`, `response` (texte + analyse) |
 | `SMS_RECEIVED` | SMS reçu | `attribution`, `sms` (voir plus bas) |
+| `CATALOG_DISCOVERED` | Menus explorés : offres (pass) trouvées | `operator`, `rootCode`, `catalog`, `screens`, `truncated` |
 | `OPERATION_FINISHED` | Exécution terminée, observations transmises | identique au bilan `EXECUTED` |
 | `OPERATION_FAILED` | Rien n'est parti chez l'opérateur | identique au bilan `NOT_EXECUTED` |
 | `OPERATION_INTERRUPTED` | Coupure pendant l'exécution : état inconnu | identique au bilan `INTERRUPTED` |
@@ -130,6 +131,48 @@ unicité de la référence avant de conclure.
 
 Une opération déjà traitée n'est **jamais** réexécutée : si `operations/next` la renvoie,
 l'Extracteur renvoie le bilan déjà établi.
+
+## Exploration des menus (opération `type: "explore"`)
+
+Pour découvrir le catalogue réel d'un opérateur (pass, prix, validité), le Balanceur
+envoie une opération d'exploration :
+
+```json
+{
+  "operationId": "EXPLORE-ORANGE-001",
+  "operator": "orange",
+  "type": "explore",
+  "ussdCode": "*144#",
+  "parameters": {"maxDepth": 6, "maxNodes": 60}
+}
+```
+
+L'Extracteur parcourt l'arbre des menus et renvoie un bilan `EXECUTED` avec `mode: "explore"`
+et un bloc `explore` :
+
+```json
+{
+  "rootCode": "*144#",
+  "pathsVisited": 9,
+  "truncated": false,
+  "nodes": [{"path": ["2","1"], "pathLabels": ["Achat", "Pass Internet"], "text": "...",
+             "isMenu": true, "options": [...], "offers": [...]}],
+  "catalog": [
+    {"name": "1 Go - 1000 FCFA - validite 7 jours", "price": 1000, "priceCurrency": "XOF",
+     "volume": 1, "volumeUnit": "Go", "validity": 7, "validityUnit": "jours",
+     "optionKey": "2", "path": ["2","1"], "pathLabels": ["Achat", "Pass Internet"]}
+  ]
+}
+```
+
+Chaque offre porte le `path` du menu où elle apparaît et son `optionKey` : le Balanceur
+connaît ainsi la suite de touches pour l'acheter plus tard (ici `*144#` → `2` → `1` → `2`).
+
+**L'exploration ne fait que lire.** Par construction, l'Extracteur ne peut pas acheter
+pendant une exploration : il n'envoie que des touches d'options lues dans un menu, s'arrête
+à tout écran qui demande une saisie (jamais de PIN ni de montant), et ne sélectionne jamais
+une option de confirmation ou de retour (`EXPLORE_BLOCK_LABELS`). Nécessite
+`USSD_BACKEND=http` ; sinon le bilan est `NOT_EXECUTED` (`EXPLORATION_NOT_SUPPORTED`).
 
 ## Passerelle USSD locale (`USSD_BACKEND=http`)
 

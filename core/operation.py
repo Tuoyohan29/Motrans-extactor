@@ -135,6 +135,10 @@ class Operation:
     # --- Paramètres d'exécution --------------------------------------------------
 
     @property
+    def is_exploration(self) -> bool:
+        return self.type.lower() in ("explore", "catalog", "discover")
+
+    @property
     def steps(self) -> list[str]:
         return [str(step) for step in self.parameters.get("steps", [])]
 

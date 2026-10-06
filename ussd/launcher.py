@@ -196,6 +196,54 @@ class MockLauncher(BaseLauncher):
         self.calls.append(("cancel", ""))
 
 
+class TreeMockLauncher(BaseLauncher):
+    """Menus USSD simulés, pour tester l'exploration sans SIM.
+
+    `tree` : chemin (touches jointes par « / », racine = "") -> {"message", "status"?}.
+    `status` par défaut : INTERACTION_REQUIRED si le nœud a des enfants, sinon COMPLETED.
+    """
+
+    name = "tree-mock"
+
+    def __init__(self, tree: dict[str, dict[str, Any]]):
+        self.tree = tree
+        self.calls: list[tuple[str, str]] = []
+        self._path: list[str] = []
+
+    @classmethod
+    def from_file(cls, path: Path) -> "TreeMockLauncher":
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return cls(data.get("tree", data))
+
+    def _node(self) -> dict[str, Any] | None:
+        return self.tree.get("/".join(self._path))
+
+    def _has_children(self) -> bool:
+        prefix = ("/".join(self._path) + "/") if self._path else ""
+        return any(key.startswith(prefix) and key != "/".join(self._path) for key in self.tree)
+
+    def _reply(self) -> UssdReply:
+        node = self._node()
+        if node is None:
+            return UssdReply(status=FAILED, error="chemin inexistant dans l'arbre simulé")
+        status = node.get("status") or (INTERACTION_REQUIRED if self._has_children() else COMPLETED)
+        return UssdReply(status=status, message=node.get("message", ""))
+
+    def start(self, code: str, sim_slot: int | None, timeout: float) -> UssdReply:
+        self.calls.append(("start", code))
+        self._path = []
+        return self._reply()
+
+    def reply(self, value: str, timeout: float) -> UssdReply:
+        self.calls.append(("reply", value))
+        self._path.append(value)
+        return self._reply()
+
+    def cancel(self) -> None:
+        self.calls.append(("cancel", ""))
+        self._path = []
+
+
 def create_launcher(config, sms_sink: Callable[[str, str], None] | None = None) -> BaseLauncher:
     if config.ussd_backend == "termux":
         return TermuxCallLauncher(config.termux_cmd_timeout)

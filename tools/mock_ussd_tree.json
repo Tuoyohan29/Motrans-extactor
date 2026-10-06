@@ -1,0 +1,11 @@
+{
+  "_comment": "Arbre de menus USSD simulé pour tester l'exploration (USSD_BACKEND... via TreeMockLauncher).",
+  "tree": {
+    "": {"message": "Orange Money\n1. Transfert d'argent\n2. Achat credit et pass\n3. Mon solde\n0. Quitter"},
+    "2": {"message": "Achat\n1. Pass Internet\n2. Pass Appels\n9. Retour"},
+    "2/1": {"message": "Pass Internet\n1. 150 Mo - 300 FCFA - validite 24h\n2. 1 Go - 1000 FCFA - validite 7 jours\n3. 5 Go - 3000 FCFA - validite 30 jours\n9. Retour"},
+    "2/2": {"message": "Pass Appels\n1. 20 min - 250 FCFA - validite 24h\n2. 60 min - 600 FCFA - validite 7 jours"},
+    "2/1/1": {"message": "Pass 150 Mo a 300 FCFA valable 24h.\n1. Confirmer\n2. Annuler", "status": "INTERACTION_REQUIRED"},
+    "3": {"message": "Votre solde est de 12 350 FCFA.", "status": "COMPLETED"}
+  }
+}
