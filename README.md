@@ -45,6 +45,7 @@ device/health.py           Termux:API, SIM, réseau, batterie, contact avec le C
 storage/local_state.py     État local (data/state.json) pour reprendre après une coupure
 utils/                     Journal (secrets masqués), outils communs
 tools/fake_central.py      Faux Central pour tester sans Balanceur
+tools/fake_bridge.py       Fausse passerelle USSD (backend http) pour tester sans APK
 tests/                     Tests unitaires (python -m unittest)
 ```
 
@@ -153,7 +154,16 @@ SMS_BACKEND=file SMS_SENDERS_ORANGE=OrangeMoney python main.py
 Le faux Central affiche chaque événement reçu. Pour simuler un SMS à la main, ajouter une
 ligne dans `data/mock_sms.jsonl` : `{"sender": "OrangeMoney", "body": "..."}`.
 
-Tests unitaires :
+Pour tester le backend `http` (celui que parle l'APK) sans l'application Android, lancer la
+fausse passerelle, qui rejoue un arbre de menus USSD :
+
+```bash
+# Terminal 3 : fausse passerelle USSD (même contrat que android-ussd-bridge)
+python tools/fake_bridge.py --tree tools/mock_ussd_tree.json --port 8765
+# puis côté Extracteur : USSD_BACKEND=http  USSD_BRIDGE_URL=http://127.0.0.1:8765
+```
+
+Tests (40, dont un bout-en-bout Extracteur → fausse passerelle `http`) :
 
 ```bash
 python -m unittest discover -s tests -t .
