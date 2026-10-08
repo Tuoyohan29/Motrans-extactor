@@ -102,6 +102,7 @@ class Config:
     data_dir: Path = field(default_factory=lambda: BASE_DIR / "data")
     log_level: str = "INFO"
     log_to_file: bool = True
+    splash: bool = True
     wake_lock: bool = True
     termux_cmd_timeout: float = 20.0
     battery_min: int = 15
@@ -167,6 +168,7 @@ class Config:
             data_dir=data_dir,
             log_level=env.get("LOG_LEVEL", "INFO").strip().upper(),
             log_to_file=_bool(env, "LOG_TO_FILE", True),
+            splash=_bool(env, "SPLASH", True),
             wake_lock=_bool(env, "WAKE_LOCK", True),
             termux_cmd_timeout=_float(env, "TERMUX_CMD_TIMEOUT", 20.0),
             battery_min=_int(env, "BATTERY_MIN", 15) or 0,

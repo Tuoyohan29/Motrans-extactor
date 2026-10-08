@@ -29,6 +29,7 @@ from storage.local_state import LocalState
 from ussd.launcher import create_launcher
 from utils.helpers import command_exists, new_id, run_command
 from utils.logger import get_logger, register_secret, setup_logging
+from utils.splash import show_splash
 
 log = get_logger("main")
 
@@ -69,6 +70,8 @@ def main(argv: list[str] | None = None) -> int:
 
     local_state = LocalState(config.data_dir / "state.json")
     extractor_id = identify(config, local_state)
+    if config.splash and not args.check and not args.explore:
+        show_splash(extractor_id, VERSION, config.ussd_backend, config.sms_backend)
     log.info("Extracteur %s v%s (USSD : %s, SMS : %s)", extractor_id, VERSION, config.ussd_backend, config.sms_backend)
 
     state = StateManager(local_state)

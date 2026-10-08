@@ -43,7 +43,7 @@ communication/reporter.py  Événements et bilans, file d'attente si le Central 
 device/info.py             Appareil, Android, Termux, SIM, opérateur
 device/health.py           Termux:API, SIM, réseau, batterie, contact avec le Central
 storage/local_state.py     État local (data/state.json) pour reprendre après une coupure
-utils/                     Journal (secrets masqués), outils communs
+utils/                     Journal (secrets masqués), animation de démarrage, outils communs
 tools/fake_central.py      Faux Central pour tester sans Balanceur
 tools/fake_bridge.py       Fausse passerelle USSD (backend http) pour tester sans APK
 tests/                     Tests unitaires (python -m unittest)
@@ -64,6 +64,9 @@ tests/                     Tests unitaires (python -m unittest)
    python main.py --check                 # Termux:API, SIM, réseau, batterie, Central
    python main.py
    ```
+
+   Au lancement, un logo animé **MOTRANS** s'affiche (dégradé, reflet, sous-titre). Il ne
+   s'affiche que sur un vrai terminal ; pour le couper : `SPLASH=false` (ou `NO_COLOR`).
 
 4. Désactiver l'optimisation de batterie pour Termux et Termux:API (sinon Android coupe
    l'Extracteur). `termux-wake-lock` est appelé au démarrage (`WAKE_LOCK=true`).
