@@ -177,6 +177,22 @@ Extracteur redémarre
   -> renvoie les événements restés en file d'attente, dans l'ordre
 ```
 
+### Reprise des opérations bloquées (mode Firestore)
+
+Quand une opération est prise, elle reçoit un **bail** (`leaseExpiresAtMs`) :
+l'extracteur le renouvelle à chaque battement (`heartbeat`) tant qu'il travaille
+dessus. Si l'extracteur disparaît (téléphone éteint, coupure réseau prolongée),
+le bail expire et personne ne renouvelle.
+
+- Avant de demander une nouvelle opération, l'extracteur **récupère** (`reclaim`)
+  ses propres opérations `assigned` dont le bail est expiré : elles repassent en
+  `queued` et redeviennent disponibles.
+- Au bout de `OPERATION_MAX_ATTEMPTS` reprises (défaut 3), l'opération n'est plus
+  remise en file mais passée en `needs_review` (« à vérifier » côté back-office),
+  pour éviter une boucle infinie sur une opération qui échoue toujours.
+- Côté back-office, une opération dont le bail est expiré affiche une bannière et
+  un bouton **« Remettre en file »** pour la reprise manuelle immédiate.
+
 ## Tester sans téléphone ni Balanceur
 
 ```bash

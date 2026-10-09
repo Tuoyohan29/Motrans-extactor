@@ -86,7 +86,7 @@ def _dec_fields(document: dict[str, Any]) -> dict[str, Any]:
 
 class FirestoreClient:
     def __init__(self, project_id: str, api_key: str, extractor_id: str, operators: list[str],
-                 timeout: float = 15.0, lease_seconds: int = 180, name: str = "",
+                 timeout: float = 15.0, lease_seconds: int = 180, max_attempts: int = 3, name: str = "",
                  base: str = "https://firestore.googleapis.com/v1", transport=None):
         self.project_id = project_id
         self.api_key = api_key
@@ -94,6 +94,7 @@ class FirestoreClient:
         self.operators = [op.lower() for op in operators]
         self.timeout = timeout
         self.lease_seconds = lease_seconds
+        self.max_attempts = max_attempts
         self.name = name or extractor_id
         self.root = f"{base}/projects/{project_id}/databases/(default)/documents"
         self._transport = transport or self._http
@@ -211,16 +212,8 @@ class FirestoreClient:
     def next_operation(self) -> dict[str, Any] | None:
         if not self.operators:
             return None
-        query = {"structuredQuery": {
-            "from": [{"collectionId": OPERATIONS}],
-            "where": {"fieldFilter": {"field": {"fieldPath": "status"},
-                                      "op": "EQUAL", "value": {"stringValue": "queued"}}},
-            "limit": 25,
-        }}
-        status, data = self._request("POST", ":runQuery", query)
-        if status != 200:
-            self._raise(status, data, "lecture file")
-        rows = [row["document"] for row in data if isinstance(row, dict) and row.get("document")]
+        self.reclaim_stalled()
+        rows = self._query_status("queued")
         candidates = []
         for doc in rows:
             fields = _dec_fields(doc)
@@ -233,6 +226,56 @@ class FirestoreClient:
             if claimed:
                 return claimed
         return None
+
+    def _query_status(self, status_value: str, limit: int = 25) -> list[dict[str, Any]]:
+        query = {"structuredQuery": {
+            "from": [{"collectionId": OPERATIONS}],
+            "where": {"fieldFilter": {"field": {"fieldPath": "status"},
+                                      "op": "EQUAL", "value": {"stringValue": status_value}}},
+            "limit": limit,
+        }}
+        status, data = self._request("POST", ":runQuery", query)
+        if status != 200:
+            self._raise(status, data, "lecture file")
+        return [row["document"] for row in data if isinstance(row, dict) and row.get("document")]
+
+    # Reprise des opérations bloquées : une opération « assigned » dont le bail a expiré
+    # (extracteur devenu muet / planté) est remise en file, ou passée « à vérifier » après
+    # le plafond d'essais. Un extracteur vivant renouvelle son bail (renew_lease) et n'est
+    # donc jamais repris à tort.
+    def reclaim_stalled(self) -> int:
+        now = _now_ms()
+        reclaimed = 0
+        for doc in self._query_status("assigned"):
+            fields = _dec_fields(doc)
+            if fields.get("operator") not in self.operators:
+                continue
+            if int(fields.get("leaseExpiresAtMs") or 0) > now:
+                continue  # bail encore valide : l'extracteur est présumé vivant
+            doc_id = doc["name"].rsplit("/", 1)[-1]
+            maxed = int(fields.get("attempts") or 0) >= self.max_attempts
+            updates = ({"status": "needs_review", "needsReviewReason": "lease_expired_max_attempts",
+                        "leaseExpiresAtMs": 0, "updatedAtMs": now}
+                       if maxed else
+                       {"status": "queued", "assignedTo": "", "leaseExpiresAtMs": 0, "updatedAtMs": now})
+            status, data = self._write(OPERATIONS, doc_id, updates,
+                                       history=self._history("lease_expired_review" if maxed else "lease_expired_requeued"),
+                                       update_time=doc.get("updateTime"))
+            if status == 200:
+                reclaimed += 1
+                log.warning("Opération %s reprise (bail expiré%s)", doc_id, ", plafond atteint" if maxed else "")
+            elif not self._is_precondition(status, data):
+                log.warning("Reprise de %s impossible : HTTP %s", doc_id, status)
+        return reclaimed
+
+    def renew_lease(self, operation_id: str) -> None:
+        """Prolonge le bail de l'opération en cours (appelé par le battement de cœur)."""
+        now = _now_ms()
+        try:
+            self._write(OPERATIONS, operation_id,
+                        {"leaseExpiresAtMs": now + self.lease_seconds * 1000, "updatedAtMs": now})
+        except CentralError as exc:
+            log.debug("Renouvellement du bail de %s impossible : %s", operation_id, exc)
 
     def _claim(self, doc: dict[str, Any], fields: dict[str, Any]) -> dict[str, Any] | None:
         doc_id = doc["name"].rsplit("/", 1)[-1]

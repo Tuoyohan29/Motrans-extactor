@@ -65,6 +65,11 @@ class Heartbeat(threading.Thread):
             log.info("Connexion au Central rétablie")
         self._ok = True
         self.state_manager.mark_contact(True)
+        # Renouvelle le bail de l'opération en cours (si le backend le gère), pour ne pas
+        # être repris à tort pendant une exécution longue.
+        operation_id = self.state_manager.current_operation
+        if operation_id and hasattr(self.client, "renew_lease"):
+            self.client.renew_lease(operation_id)
         return True
 
     def run(self) -> None:

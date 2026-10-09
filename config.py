@@ -87,6 +87,7 @@ class Config:
     firestore_base: str = "https://firestore.googleapis.com/v1"
     extractor_operators: list[str] = field(default_factory=list)
     operation_lease_sec: int = 180
+    operation_max_attempts: int = 3
 
     ussd_backend: str = "termux"
     ussd_bridge_url: str = "http://127.0.0.1:8765"
@@ -160,6 +161,7 @@ class Config:
             firestore_base=env.get("FIRESTORE_BASE", "https://firestore.googleapis.com/v1").strip().rstrip("/"),
             extractor_operators=_list(env, "EXTRACTOR_OPERATORS"),
             operation_lease_sec=_int(env, "OPERATION_LEASE_SEC", 180) or 180,
+            operation_max_attempts=_int(env, "OPERATION_MAX_ATTEMPTS", 3) or 3,
             http_timeout=_float(env, "HTTP_TIMEOUT", 15.0),
             poll_interval=_float(env, "POLL_INTERVAL", 5.0),
             heartbeat_interval=_float(env, "HEARTBEAT_INTERVAL", 30.0),

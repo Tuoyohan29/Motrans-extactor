@@ -1,8 +1,17 @@
 """Tests du backend Firestore direct, avec un faux Firestore en mémoire (sans réseau)."""
 
 import json
+import time
 import unittest
 import urllib.parse
+
+
+def _now():
+    return int(time.time() * 1000)
+
+
+def _future():
+    return _now() + 10 * 60 * 1000
 
 from communication.client import CentralError
 from communication.firestore_client import FirestoreClient, _dec, _dec_fields, _enc, _enc_fields
@@ -35,11 +44,12 @@ class FakeFirestore:
 
     def _run_query(self, body):
         coll = body["structuredQuery"]["from"][0]["collectionId"]
+        wanted = body["structuredQuery"]["where"]["fieldFilter"]["value"]["stringValue"]
         out = []
         for key, doc in self.docs.items():
             if key.split("/")[0] != coll:
                 continue
-            if _dec_fields(doc).get("status") == "queued":
+            if _dec_fields(doc).get("status") == wanted:
                 out.append({"document": {"name": key, "fields": doc["fields"], "updateTime": doc["updateTime"]}})
         return 200, out
 
@@ -173,6 +183,45 @@ class FirestoreClientTest(unittest.TestCase):
         entries = [k for k in self.fs.docs if k.startswith("discovered_catalog/orange_")]
         self.assertEqual(len(entries), 1)
         self.assertEqual(_dec_fields(self.fs.docs[entries[0]])["price"], 1000)
+
+    def _seed_assigned(self, doc_id, *, lease, attempts=1, operator="orange"):
+        self.fs.seed("operations", doc_id, {"status": "assigned", "operator": operator, "assignedTo": "OTHER",
+                                            "attempts": attempts, "leaseExpiresAtMs": lease, "createdAtMs": 10,
+                                            "ussdCode": "*1#", "parameters": {}, "history": []})
+
+    def test_reclaim_expired_requeues(self):
+        self._seed_assigned("OPX", lease=1, attempts=1)  # bail expiré, essais < max
+        self.assertEqual(self.c.reclaim_stalled(), 1)
+        self.assertEqual(self.fs.field("operations", "OPX", "status"), "queued")
+        self.assertEqual(self.fs.field("operations", "OPX", "assignedTo"), "")
+
+    def test_reclaim_not_expired_untouched(self):
+        self._seed_assigned("OPX", lease=_future())
+        self.assertEqual(self.c.reclaim_stalled(), 0)
+        self.assertEqual(self.fs.field("operations", "OPX", "status"), "assigned")
+
+    def test_reclaim_max_attempts_to_review(self):
+        self._seed_assigned("OPX", lease=1, attempts=3)  # plafond atteint
+        self.c.reclaim_stalled()
+        self.assertEqual(self.fs.field("operations", "OPX", "status"), "needs_review")
+        self.assertEqual(self.fs.field("operations", "OPX", "needsReviewReason"), "lease_expired_max_attempts")
+
+    def test_reclaim_operator_filter(self):
+        self._seed_assigned("OPX", lease=1, operator="mtn")
+        self.assertEqual(self.c.reclaim_stalled(), 0)  # extracteur orange ne reprend pas une op mtn
+
+    def test_next_operation_reclaims_then_claims(self):
+        self._seed_assigned("OPX", lease=1, attempts=1)
+        op = self.c.next_operation()
+        self.assertEqual(op["operationId"], "OPX")
+        self.assertEqual(self.fs.field("operations", "OPX", "status"), "assigned")
+        self.assertEqual(self.fs.field("operations", "OPX", "assignedTo"), "EXT-T")
+
+    def test_renew_lease_extends(self):
+        self.fs.seed("operations", "OPX", {"status": "assigned", "operator": "orange", "assignedTo": "EXT-T",
+                                           "leaseExpiresAtMs": 1, "createdAtMs": 10})
+        self.c.renew_lease("OPX")
+        self.assertGreater(self.fs.field("operations", "OPX", "leaseExpiresAtMs"), _now())
 
     def test_server_error_is_retryable(self):
         def boom(method, url, body):

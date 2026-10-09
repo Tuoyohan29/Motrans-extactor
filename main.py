@@ -79,7 +79,8 @@ def main(argv: list[str] | None = None) -> int:
         from communication.firestore_client import FirestoreClient
         client = FirestoreClient(config.firebase_project_id, config.firebase_api_key, extractor_id,
                                  config.extractor_operators, timeout=config.http_timeout,
-                                 lease_seconds=config.operation_lease_sec, base=config.firestore_base)
+                                 lease_seconds=config.operation_lease_sec,
+                                 max_attempts=config.operation_max_attempts, base=config.firestore_base)
         log.info("Mode base : écriture directe Firestore (projet %s, opérateurs %s)",
                  config.firebase_project_id, ", ".join(config.extractor_operators))
     else:
