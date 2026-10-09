@@ -74,18 +74,20 @@ def _list(env: Mapping[str, str], key: str) -> list[str]:
 class Config:
     extractor_id: str = ""
     extractor_token: str = ""
-    # "http" : via l'API du Balanceur ; "firestore" : écriture directe dans la base.
-    central_backend: str = "http"
+    # "firestore" : écriture directe dans la base (défaut) ; "http" : via l'API du Balanceur.
+    central_backend: str = "firestore"
     central_url: str = ""
     http_timeout: float = 15.0
     poll_interval: float = 5.0
     heartbeat_interval: float = 30.0
 
     # Accès direct Firestore (central_backend="firestore").
-    firebase_project_id: str = ""
-    firebase_api_key: str = ""
+    # Valeurs par défaut = config Web du projet transweb-bd0a2 (clé publique côté client,
+    # identique à public/Firebase.js). On peut les surcharger dans le .env.
+    firebase_project_id: str = "transweb-bd0a2"
+    firebase_api_key: str = "AIzaSyBNi4HBIHys7-vR78Qw8rTKEpQjVSqZDnc"
     firestore_base: str = "https://firestore.googleapis.com/v1"
-    extractor_operators: list[str] = field(default_factory=list)
+    extractor_operators: list[str] = field(default_factory=lambda: ["orange"])
     operation_lease_sec: int = 180
     operation_max_attempts: int = 3
 
@@ -154,12 +156,12 @@ class Config:
         return cls(
             extractor_id=env.get("EXTRACTOR_ID", "").strip(),
             extractor_token=env.get("EXTRACTOR_TOKEN", "").strip(),
-            central_backend=env.get("CENTRAL_BACKEND", "http").strip().lower(),
+            central_backend=env.get("CENTRAL_BACKEND", "firestore").strip().lower(),
             central_url=env.get("CENTRAL_URL", "").strip().rstrip("/"),
-            firebase_project_id=env.get("FIREBASE_PROJECT_ID", "").strip(),
-            firebase_api_key=env.get("FIREBASE_API_KEY", "").strip(),
+            firebase_project_id=env.get("FIREBASE_PROJECT_ID", "transweb-bd0a2").strip(),
+            firebase_api_key=env.get("FIREBASE_API_KEY", "AIzaSyBNi4HBIHys7-vR78Qw8rTKEpQjVSqZDnc").strip(),
             firestore_base=env.get("FIRESTORE_BASE", "https://firestore.googleapis.com/v1").strip().rstrip("/"),
-            extractor_operators=_list(env, "EXTRACTOR_OPERATORS"),
+            extractor_operators=_list(env, "EXTRACTOR_OPERATORS") or ["orange"],
             operation_lease_sec=_int(env, "OPERATION_LEASE_SEC", 180) or 180,
             operation_max_attempts=_int(env, "OPERATION_MAX_ATTEMPTS", 3) or 3,
             http_timeout=_float(env, "HTTP_TIMEOUT", 15.0),
@@ -197,8 +199,8 @@ class Config:
         problems = []
         if self.central_backend not in ("http", "firestore"):
             problems.append('CENTRAL_BACKEND doit valoir "http" ou "firestore".')
-        if not self.extractor_id:
-            problems.append("EXTRACTOR_ID est obligatoire.")
+        # EXTRACTOR_ID n'est pas bloquant : s'il manque, identify() en génère un (EXT-XXXX)
+        # et le conserve dans l'état local.
         if self.central_backend == "firestore":
             if not self.firebase_project_id:
                 problems.append("FIREBASE_PROJECT_ID est obligatoire (accès direct Firestore).")
