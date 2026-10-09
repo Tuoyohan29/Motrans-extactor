@@ -32,6 +32,44 @@ def telephony_info(timeout: float) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
+# Codes opérateurs (MCC+MNC) connus -> opérateur normalisé. Côte d'Ivoire notamment.
+_OPERATOR_CODES = {
+    "61201": "orange", "61202": "orange",
+    "61203": "moov",
+    "61205": "mtn",
+}
+_KNOWN_OPERATORS = ("orange", "mtn", "moov")
+
+
+def detect_operator(device_info: dict[str, Any]) -> str | None:
+    """Opérateur déduit de la SIM (code puis nom), en minuscules, ou None si inconnu."""
+    code = (device_info.get("simOperatorCode") or "").strip()
+    if code in _OPERATOR_CODES:
+        return _OPERATOR_CODES[code]
+    name = (device_info.get("simOperator") or device_info.get("networkOperator") or "").lower()
+    for known in _KNOWN_OPERATORS:
+        if known in name:
+            return known
+    return None
+
+
+def sim_operator_warning(device_info: dict[str, Any], operators: list[str]) -> str | None:
+    """Alerte si la SIM détectée ne correspond à aucun opérateur servi (sinon None).
+
+    Évite le piège « tirer un code Orange sur une SIM MTN » : on compare l'opérateur
+    déduit de la SIM aux opérateurs déclarés dans EXTRACTOR_OPERATORS.
+    """
+    detected = detect_operator(device_info)
+    if not detected or not operators:
+        return None  # SIM inconnue ou pas d'opérateur configuré : on ne peut pas trancher
+    if detected in [o.strip().lower() for o in operators]:
+        return None
+    label = device_info.get("simOperator") or device_info.get("networkOperator") or detected
+    return (f"SIM détectée « {label} » (opérateur {detected}) mais EXTRACTOR_OPERATORS = "
+            f"{', '.join(operators)}. Risque de tirer un code du mauvais opérateur : "
+            f"vérifie EXTRACTOR_OPERATORS, la SIM, ou USSD_SIM_SLOT.")
+
+
 def collect_device_info(config, install_id: str) -> dict[str, Any]:
     telephony = telephony_info(config.termux_cmd_timeout) if config.needs_termux else {}
     return {

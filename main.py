@@ -92,6 +92,11 @@ def main(argv: list[str] | None = None) -> int:
     launcher = create_launcher(config, reader.add if isinstance(reader, FileSmsReader) else None)
     health = HealthMonitor(config, state, sms_listener)
     device_info = collect_device_info(config, local_state.get("install_id"))
+    if config.real_device:
+        from device.info import sim_operator_warning
+        sim_warning = sim_operator_warning(device_info, config.extractor_operators)
+        if sim_warning:
+            log.warning(sim_warning)
 
     if args.check:
         report = health.check()
