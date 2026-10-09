@@ -49,6 +49,28 @@ tools/fake_bridge.py       Fausse passerelle USSD (backend http) pour tester san
 tests/                     Tests unitaires (python -m unittest)
 ```
 
+## Connexion à MoTrans (production)
+
+L'Extracteur se connecte au **Balanceur** (l'API des Cloud Functions du projet
+`transweb-bd0a2`), pas directement à Firestore. Le fichier `Firebase.js` du front n'est donc
+**pas** utilisé par l'Extracteur.
+
+1. Dans le **back-office** → page **Extracteurs** → **Nouvel extracteur** : choisir un
+   identifiant, les opérateurs servis et le mode de décision, puis **copier le jeton**
+   (affiché une seule fois).
+2. Dans le `.env` de l'Extracteur :
+
+   ```ini
+   CENTRAL_URL=https://europe-west1-transweb-bd0a2.cloudfunctions.net/api
+   EXTRACTOR_ID=EXT-01
+   EXTRACTOR_TOKEN=<le jeton copié>
+   ```
+3. Vérifier la liaison : `python main.py --check` (doit afficher « Central : joignable »).
+
+> ⚠️ **Prérequis : les Cloud Functions doivent être déployées** (`firebase deploy --only
+> functions`, avec `FULFILLMENT_PROVIDER=balancer`). Tant qu'elles ne le sont pas, l'API du
+> Balanceur n'existe pas et l'Extracteur ne peut pas se connecter.
+
 ## Installation sur le téléphone
 
 1. Installer **Termux** et **Termux:API** depuis la même source (F-Droid ou GitHub, pas de
