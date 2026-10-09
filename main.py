@@ -75,7 +75,15 @@ def main(argv: list[str] | None = None) -> int:
     log.info("Extracteur %s v%s (USSD : %s, SMS : %s)", extractor_id, VERSION, config.ussd_backend, config.sms_backend)
 
     state = StateManager(local_state)
-    client = CentralClient(config.central_url, config.extractor_token, extractor_id, config.http_timeout)
+    if config.central_backend == "firestore":
+        from communication.firestore_client import FirestoreClient
+        client = FirestoreClient(config.firebase_project_id, config.firebase_api_key, extractor_id,
+                                 config.extractor_operators, timeout=config.http_timeout,
+                                 lease_seconds=config.operation_lease_sec, base=config.firestore_base)
+        log.info("Mode base : écriture directe Firestore (projet %s, opérateurs %s)",
+                 config.firebase_project_id, ", ".join(config.extractor_operators))
+    else:
+        client = CentralClient(config.central_url, config.extractor_token, extractor_id, config.http_timeout)
     reporter = Reporter(client, local_state, extractor_id, state)
 
     reader = create_reader(config)

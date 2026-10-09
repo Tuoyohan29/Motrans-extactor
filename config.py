@@ -74,10 +74,19 @@ def _list(env: Mapping[str, str], key: str) -> list[str]:
 class Config:
     extractor_id: str = ""
     extractor_token: str = ""
+    # "http" : via l'API du Balanceur ; "firestore" : écriture directe dans la base.
+    central_backend: str = "http"
     central_url: str = ""
     http_timeout: float = 15.0
     poll_interval: float = 5.0
     heartbeat_interval: float = 30.0
+
+    # Accès direct Firestore (central_backend="firestore").
+    firebase_project_id: str = ""
+    firebase_api_key: str = ""
+    firestore_base: str = "https://firestore.googleapis.com/v1"
+    extractor_operators: list[str] = field(default_factory=list)
+    operation_lease_sec: int = 180
 
     ussd_backend: str = "termux"
     ussd_bridge_url: str = "http://127.0.0.1:8765"
@@ -144,7 +153,13 @@ class Config:
         return cls(
             extractor_id=env.get("EXTRACTOR_ID", "").strip(),
             extractor_token=env.get("EXTRACTOR_TOKEN", "").strip(),
+            central_backend=env.get("CENTRAL_BACKEND", "http").strip().lower(),
             central_url=env.get("CENTRAL_URL", "").strip().rstrip("/"),
+            firebase_project_id=env.get("FIREBASE_PROJECT_ID", "").strip(),
+            firebase_api_key=env.get("FIREBASE_API_KEY", "").strip(),
+            firestore_base=env.get("FIRESTORE_BASE", "https://firestore.googleapis.com/v1").strip().rstrip("/"),
+            extractor_operators=_list(env, "EXTRACTOR_OPERATORS"),
+            operation_lease_sec=_int(env, "OPERATION_LEASE_SEC", 180) or 180,
             http_timeout=_float(env, "HTTP_TIMEOUT", 15.0),
             poll_interval=_float(env, "POLL_INTERVAL", 5.0),
             heartbeat_interval=_float(env, "HEARTBEAT_INTERVAL", 30.0),
@@ -178,12 +193,24 @@ class Config:
     def problems(self) -> list[str]:
         """Erreurs bloquantes de configuration (liste vide si tout va bien)."""
         problems = []
-        if not self.central_url:
-            problems.append("CENTRAL_URL est obligatoire (adresse du Balanceur).")
-        elif not self.central_url.startswith(("http://", "https://")):
-            problems.append("CENTRAL_URL doit commencer par http:// ou https://.")
-        if not self.extractor_token:
-            problems.append("EXTRACTOR_TOKEN est obligatoire (jeton fourni par le Balanceur).")
+        if self.central_backend not in ("http", "firestore"):
+            problems.append('CENTRAL_BACKEND doit valoir "http" ou "firestore".')
+        if not self.extractor_id:
+            problems.append("EXTRACTOR_ID est obligatoire.")
+        if self.central_backend == "firestore":
+            if not self.firebase_project_id:
+                problems.append("FIREBASE_PROJECT_ID est obligatoire (accès direct Firestore).")
+            if not self.firebase_api_key:
+                problems.append("FIREBASE_API_KEY est obligatoire (accès direct Firestore).")
+            if not self.extractor_operators:
+                problems.append("EXTRACTOR_OPERATORS est obligatoire (ex. orange,mtn).")
+        else:
+            if not self.central_url:
+                problems.append("CENTRAL_URL est obligatoire (adresse du Balanceur).")
+            elif not self.central_url.startswith(("http://", "https://")):
+                problems.append("CENTRAL_URL doit commencer par http:// ou https://.")
+            if not self.extractor_token:
+                problems.append("EXTRACTOR_TOKEN est obligatoire (jeton fourni par le Balanceur).")
         if self.ussd_backend not in USSD_BACKENDS:
             problems.append(f"USSD_BACKEND doit valoir {', '.join(USSD_BACKENDS)}.")
         if self.sms_backend not in SMS_BACKENDS:

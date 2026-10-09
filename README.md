@@ -51,25 +51,38 @@ tests/                     Tests unitaires (python -m unittest)
 
 ## Connexion à MoTrans (production)
 
-L'Extracteur se connecte au **Balanceur** (l'API des Cloud Functions du projet
-`transweb-bd0a2`), pas directement à Firestore. Le fichier `Firebase.js` du front n'est donc
-**pas** utilisé par l'Extracteur.
+Deux modes, réglés par `CENTRAL_BACKEND` :
 
-1. Dans le **back-office** → page **Extracteurs** → **Nouvel extracteur** : choisir un
-   identifiant, les opérateurs servis et le mode de décision, puis **copier le jeton**
-   (affiché une seule fois).
-2. Dans le `.env` de l'Extracteur :
+- **`firestore` (par défaut ici)** — l'Extracteur lit et écrit **directement dans Firestore**
+  (comme le back-office), sans serveur. Il récupère les opérations en file, les exécute, et
+  écrit ses observations ; une opération exécutée passe en **« à vérifier »** et un agent la
+  tranche dans le back-office.
+- **`http`** — via l'API du **Balanceur** (Cloud Functions ; nécessite `firebase deploy
+  --only functions`).
 
-   ```ini
-   CENTRAL_URL=https://europe-west1-transweb-bd0a2.cloudfunctions.net/api
-   EXTRACTOR_ID=EXT-01
-   EXTRACTOR_TOKEN=<le jeton copié>
-   ```
-3. Vérifier la liaison : `python main.py --check` (doit afficher « Central : joignable »).
+### Mode direct Firestore (recommandé pour l'instant)
 
-> ⚠️ **Prérequis : les Cloud Functions doivent être déployées** (`firebase deploy --only
-> functions`, avec `FULFILLMENT_PROVIDER=balancer`). Tant qu'elles ne le sont pas, l'API du
-> Balanceur n'existe pas et l'Extracteur ne peut pas se connecter.
+Dans le `.env` de l'Extracteur — valeurs tirées du `Firebase.js` du front :
+
+```ini
+CENTRAL_BACKEND=firestore
+FIREBASE_PROJECT_ID=transweb-bd0a2
+FIREBASE_API_KEY=AIzaSyBNi4HBIHys7-vR78Qw8rTKEpQjVSqZDnc
+EXTRACTOR_ID=EXT-01
+EXTRACTOR_OPERATORS=orange        # opérateurs servis (virgules)
+```
+
+L'Extracteur **s'enregistre tout seul** dans la collection `extractors` à son premier
+battement (ou crée-le d'abord dans le back-office pour fixer son nom / ses opérateurs).
+Vérifier : `python main.py --check`.
+
+> Dans ce mode, c'est un humain qui valide : chaque opération exécutée arrive dans l'onglet
+> **« À vérifier »** du back-office, où l'agent marque **livrée** ou **échouée**
+> (remboursement). La décision automatique par SMS n'est pas utilisée.
+>
+> ⚠️ Il faut encore **créer les opérations** : une commande payée ne devient une opération
+> pour l'Extracteur que si le back-office la lui confie (action « Confier à un extracteur »).
+> Sans opération en file, l'Extracteur tourne à vide.
 
 ## Installation sur le téléphone
 
